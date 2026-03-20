@@ -1,0 +1,72 @@
+{
+  "trained_at": "2026-03-18T17:09:25.118566",
+  "n_training_rows": 40000,
+  "n_test_rows": 10000,
+  "feature_names": [
+    "rain_mm_per_hr",
+    "temperature_c",
+    "aqi",
+    "wind_kmh",
+    "visibility_m",
+    "zone_flood_risk",
+    "congestion",
+    "traffic_delay_min",
+    "road_closure",
+    "driver_speed",
+    "speed_deviation",
+    "distance_remaining",
+    "hour",
+    "weekday",
+    "month",
+    "is_weekend",
+    "is_rush_hour",
+    "rain_x_zone",
+    "heat_x_aqi",
+    "congestion_rush",
+    "speed_zone"
+  ],
+  "n_features": 21,
+  "models": {
+    "risk_score_regressor": {
+      "mae": 3.1,
+      "r2": 0.9801
+    },
+    "delay_level_classifier": {
+      "accuracy": 0.9184,
+      "macro_f1": 0.9028
+    },
+    "parametric_trigger_classifier": {
+      "roc_auc": 1.0,
+      "trigger_precision": 0.9989,
+      "trigger_recall": 0.9997,
+      "trigger_f1": 0.9993
+    }
+  },
+  "thresholds": {
+    "risk_score": {
+      "low": 0,
+      "moderate": 40,
+      "high": 60,
+      "critical": 80
+    },
+    "trigger_prob_min": 0.5
+  },
+  "data_stats": {
+    "trigger_rate_pct": 38.3,
+    "avg_risk_score": 58.71,
+    "months_covered": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12
+    ]
+  }
+}

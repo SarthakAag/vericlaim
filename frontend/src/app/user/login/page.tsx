@@ -1,84 +1,94 @@
-"use client";
+"use client"
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
-import API from "@/services/api";
+import { useState, useEffect } from "react"
+import { useRouter } from "next/navigation"
+import API from "@/services/api"
+import Navbar from "@/components/Navbar"
 
-export default function UserLogin() {
+export default function Login(){
 
-  const [email, setEmail] = useState<string>("");
-  const [password, setPassword] = useState<string>("");
-  const [loading, setLoading] = useState(false);
+  const router = useRouter()
 
-  const router = useRouter();
+  const [email,setEmail] = useState("")
+  const [password,setPassword] = useState("")
+  const [loading,setLoading] = useState(false)
+
+  // 🔒 Prevent logged-in user from seeing login page
+  useEffect(() => {
+    const token = localStorage.getItem("user_token")
+    if (token) {
+      router.push("/earnings")
+    }
+  }, [])
 
   const login = async () => {
 
     if (!email || !password) {
-      alert("Please enter email and password");
-      return;
+      alert("Please enter email and password")
+      return
     }
 
-    try {
+    try{
 
-      setLoading(true);
+      setLoading(true)
 
-      const res = await API.post("/auth/login", {
-        email: email,
-        password: password
-      });
+      const res = await API.post("/auth/login",{
+        email,
+        password
+      })
 
-      localStorage.setItem("user_token", res.data.access_token);
+      localStorage.setItem("user_token",res.data.access_token)
 
-      alert("Login Successful");
+      router.push("/enroll-policy")
 
-      // Redirect to earnings dashboard
-      router.push("/earnings");
+    }catch(err:any){
 
-    } catch (error: any) {
+      console.error(err)
 
-      console.error(error);
-
-      if (error.response) {
-        alert(error.response.data.detail || "Login failed");
-      } else {
-        alert("Server error");
-      }
+      alert(err?.response?.data?.detail || "Login failed")
 
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
-  };
 
-  return (
+  }
 
-    <div className="p-10 max-w-md mx-auto">
+  return(
 
-      <h1 className="text-2xl font-bold mb-6">
-        Delivery Partner Login
-      </h1>
+    <div>
 
-      <input
-        className="border p-2 mb-4 block w-full"
-        placeholder="Email"
-        onChange={(e) => setEmail(e.target.value)}
-      />
+      <Navbar/>
 
-      <input
-        type="password"
-        className="border p-2 mb-4 block w-full"
-        placeholder="Password"
-        onChange={(e) => setPassword(e.target.value)}
-      />
+      <div className="p-10 max-w-md mx-auto">
 
-      <button
-        onClick={login}
-        disabled={loading}
-        className="bg-blue-500 text-white px-4 py-2 rounded w-full"
-      >
-        {loading ? "Logging in..." : "Login"}
-      </button>
+        <h1 className="text-2xl font-bold mb-6">
+          Delivery Partner Login
+        </h1>
+
+        <input
+          className="border p-2 mb-3 w-full"
+          placeholder="Email"
+          onChange={(e)=>setEmail(e.target.value)}
+        />
+
+        <input
+          type="password"
+          className="border p-2 mb-3 w-full"
+          placeholder="Password"
+          onChange={(e)=>setPassword(e.target.value)}
+        />
+
+        <button
+          onClick={login}
+          disabled={loading}
+          className="bg-blue-500 text-white px-4 py-2 w-full"
+        >
+          {loading ? "Logging in..." : "Login"}
+        </button>
+
+      </div>
 
     </div>
-  );
+
+  )
 }

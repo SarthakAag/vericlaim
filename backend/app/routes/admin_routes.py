@@ -42,7 +42,7 @@ def admin_register(admin: AdminRegister, db: Session = Depends(get_db)):
     return {"message": "Admin registered successfully"}
 
 
-# ADMIN LOGIN (OAuth Compatible)
+# ADMIN LOGIN
 @router.post("/login")
 def admin_login(
     form_data: OAuth2PasswordRequestForm = Depends(),
@@ -51,14 +51,11 @@ def admin_login(
 
     db_admin = db.query(Admin).filter(Admin.username == form_data.username).first()
 
-    if not db_admin:
-        raise HTTPException(status_code=404, detail="Admin not found")
-
-    if not verify_password(form_data.password, db_admin.password_hash):
+    if not db_admin or not verify_password(form_data.password, db_admin.password_hash):
         raise HTTPException(status_code=401, detail="Invalid credentials")
 
     access_token = create_access_token(
-        data={"sub": db_admin.username}
+        data={"sub": db_admin.username, "role": "admin"}  # ← fix
     )
 
     return {
