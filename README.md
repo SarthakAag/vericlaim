@@ -115,9 +115,10 @@ npm install
 npm run dev
 
 ###Future Plans
-Real API integration (Weather, Traffic)
-Advanced ML models (anomaly detection)
-Hyperlocal risk prediction
-Payment integration (Razorpay / UPI)
-Mobile application
-Integration with gig platforms
+
+-Real API integration (Weather, Traffic)
+-Advanced ML models (anomaly detection)
+-Hyperlocal risk prediction
+-Payment integration (Razorpay / UPI)
+-Mobile application
+-Integration with gig platforms
