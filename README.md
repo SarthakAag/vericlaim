@@ -97,7 +97,7 @@ VeriClaim AI provides a **fully automated, AI-powered insurance system**:
 
 1️ Clone the repository
 bash
-git clone https://github.com/your-username/vericlaim.git
+git clone https://github.com/SarthakAag/vericlaim
 cd vericlaim
 
 2️.Backend Setup
