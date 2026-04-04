@@ -3,7 +3,7 @@ InsurancePolicy Model
 Master policy definition. One row per tier (Basic / Standard / Premium).
 """
 
-from sqlalchemy import Column, Integer, Float, String, Boolean, DateTime
+from sqlalchemy import Column, Integer, Float, String, Boolean, DateTime, JSON
 from sqlalchemy.orm import relationship
 from datetime import datetime
 from app.database import Base
@@ -37,6 +37,11 @@ class InsurancePolicy(Base):
     is_active                = Column(Boolean, default=True)
     min_weekly_income        = Column(Float,   default=0.0)
     max_weekly_income        = Column(Float,   default=999_999.0)
+
+    # ── Exclusion Clauses (stored as JSON list of exclusion codes) ────────────
+    # Populated from app/core/exclusions.py at policy creation time.
+    # Example: ["health_medical", "war", "pandemic", "vehicle_repair", ...]
+    excluded_events          = Column(JSON, default=list)
 
     # ── Metadata ──────────────────────────────────────────────────────────────
     created_at               = Column(DateTime, default=datetime.utcnow)

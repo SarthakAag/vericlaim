@@ -31,6 +31,7 @@ from app.models.enrollment_model import PolicyEnrollment
 from app.models.policy_model     import InsurancePolicy
 from app.models.earnings_model   import DeliveryEarnings
 from app.models.payout_model     import PredictionHistory
+from app.core.exclusions         import EXCLUDED_DISRUPTION_TYPES, get_rejection_code
 
 logger = logging.getLogger(__name__)
 
@@ -41,6 +42,13 @@ PAYOUT_MULTIPLIERS: dict[str, float] = {
     "cyclone": 1.00,      "curfew": 1.00,     "strike": 0.90,
     "severe_heat": 0.65,  "severe_aqi": 0.55, "road_closure": 0.70,
     "low_visibility": 0.50, "operational_delay": 0.30, "none": 0.00,
+
+    # ── Food delivery-specific disruption multipliers ──────────────────────
+    "platform_app_outage":       0.80,   # Zomato/Swiggy down = zero orders
+    "restaurant_zone_closure":   0.85,   # Govt-ordered restaurant shutdown
+    "night_curfew":              1.00,   # Full income loss after 10 PM
+    "festival_traffic_gridlock": 0.65,   # Severe gridlock, partial loss
+    "flood_road_closure":        1.00,   # Roads submerged, cannot deliver
 }
 
 PAYOUT_TIER_FRACTION: dict[str, float] = {
@@ -53,6 +61,13 @@ FRAUD_PAYOUT_FACTOR: dict[str, float] = {
 
 SEASONAL_PREMIUM_ADDON: dict[int, float] = {
     10: 0.15, 11: 0.20, 12: 0.10, 5: 0.08, 6: 0.05,
+}
+
+# Platform payout day alignment — deduct premium on the day partner gets paid
+PLATFORM_PAYOUT_DAY: dict[str, int] = {
+    "zomato": 0,   # Monday
+    "swiggy": 2,   # Wednesday
+    "both":   0,   # Monday (conservative)
 }
 
 # Channel routing thresholds
@@ -120,9 +135,10 @@ class PayoutCalculationService:
         # ── Paid this week from DB (fixes the 0.0 stub) ───────────────────────
         paid_this_week    = self._get_paid_this_week(db, user_id)
 
-        # ── Eligibility check ─────────────────────────────────────────────────
+        # ── Eligibility check (exclusion gate is first inside) ────────────────
         eligibility = self._check_eligibility(
-            policy, enrollment, delay_hours, parametric, fraud, paid_this_week
+            policy, enrollment, delay_hours, parametric, fraud, paid_this_week,
+            disruption_type=disruption_type,
         )
         if not eligibility["eligible"]:
             record = self._build_rejected(
@@ -283,11 +299,22 @@ class PayoutCalculationService:
         raw_premium    = base_premium * (1 + zone_adj + risk_adj + seasonal_adj)
         final_premium  = round(min(raw_premium, max_affordable), 2)
 
+        # Platform payout day — deduct premium when partner gets paid
+        from app.models.user_model import DeliveryPartner
+        partner = db.query(DeliveryPartner).filter(
+            DeliveryPartner.id == user_id
+        ).first()
+        platform      = (partner.platform or "zomato").lower() if partner else "zomato"
+        payout_weekday = PLATFORM_PAYOUT_DAY.get(platform, 0)
+        payout_day_name = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"][payout_weekday]
+
         return {
             "policy_tier":              policy_tier,
             "policy_id":                policy.id,
             "base_premium_inr":         base_premium,
             "final_weekly_premium_inr": final_premium,
+            "premium_deduction_day":    payout_day_name,   # NEW — for pitch/UI
+            "platform":                 platform,           # NEW
             "premium_breakdown": {
                 "base_inr":                base_premium,
                 "zone_adjustment_pct":     round(zone_adj     * 100, 1),
@@ -329,7 +356,12 @@ class PayoutCalculationService:
 
     @staticmethod
     def _get_weekly_avg_income(db: Session, user_id: int) -> float:
-        """4-week rolling average from delivery_earnings."""
+        """
+        4-week rolling average from delivery_earnings.
+        Falls back to zone + platform-aware estimate when no earnings rows exist.
+        Replaces the flat ₹4000 fallback — uses restaurant density and
+        avg order value from FOOD_DELIVERY_ZONE_PROFILE.
+        """
         four_weeks_ago = date.today() - timedelta(weeks=4)
         result = (
             db.query(func.avg(DeliveryEarnings.total_earnings))
@@ -339,7 +371,41 @@ class PayoutCalculationService:
             )
             .scalar()
         )
-        return float(result) if result else 4_000.0
+        if result:
+            return float(result)
+
+        # ── Zone + platform-aware fallback ────────────────────────────────────
+        try:
+            from app.models.user_model import DeliveryPartner
+            from app.services.ml_risk_model import FOOD_DELIVERY_ZONE_PROFILE
+
+            partner = db.query(DeliveryPartner).filter(
+                DeliveryPartner.id == user_id
+            ).first()
+
+            if partner and partner.zone:
+                profile = FOOD_DELIVERY_ZONE_PROFILE.get(
+                    partner.zone.lower(),
+                    FOOD_DELIVERY_ZONE_PROFILE["default"]
+                )
+                platform_mult = {
+                    "zomato": 1.05,
+                    "swiggy": 1.00,
+                    "both":   1.08,
+                }.get((partner.platform or "").lower(), 1.0)
+
+                # delivery cut ≈ 8% of order value × daily orders × 6 working days
+                daily_earnings = (
+                    profile["avg_order_value"]
+                    * profile["avg_daily_orders"]
+                    * 0.08
+                )
+                return round(daily_earnings * 6 * platform_mult, 2)
+
+        except Exception as exc:
+            logger.warning(f"[Payout] Zone-aware income fallback failed: {exc}")
+
+        return 4_000.0   # absolute last resort
 
     @staticmethod
     def _get_paid_this_week(db: Session, user_id: int) -> float:
@@ -458,7 +524,15 @@ class PayoutCalculationService:
         parametric: dict,
         fraud: dict,
         paid_this_week: float,
+        disruption_type: str = "none",
     ) -> dict:
+        # ── Exclusion clause gate — checked first, before anything else ───────
+        if disruption_type in EXCLUDED_DISRUPTION_TYPES:
+            return {
+                "eligible":         False,
+                "rejection_reason": get_rejection_code(disruption_type),
+            }
+        # ─────────────────────────────────────────────────────────────────────
         if enrollment.status != "active":
             return {"eligible": False, "rejection_reason": "ENROLLMENT_NOT_ACTIVE"}
         if enrollment.claims_this_week >= policy.max_claims_per_week:

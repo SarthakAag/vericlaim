@@ -200,15 +200,55 @@ export default function AdminDashboard() {
 
         .dash-subtitle { font-size: 14px; color: #475569; }
 
+        /* ── NEW: header right button group ── */
+        .dash-header-actions {
+          display: flex;
+          flex-direction: column;
+          align-items: flex-end;
+          gap: 10px;
+        }
+
+        /* ── NEW: fraud button ── */
+        .btn-fraud {
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+          padding: 10px 18px;
+          border-radius: 10px;
+          border: 1px solid rgba(239,68,68,0.35);
+          background: rgba(239,68,68,0.10);
+          color: #f87171;
+          font-family: 'DM Sans', sans-serif;
+          font-size: 13px;
+          font-weight: 600;
+          cursor: pointer;
+          transition: all 0.2s;
+          white-space: nowrap;
+        }
+        .btn-fraud:hover {
+          background: rgba(239,68,68,0.20);
+          border-color: rgba(239,68,68,0.55);
+          transform: translateY(-1px);
+          box-shadow: 0 4px 14px rgba(239,68,68,0.2);
+        }
+        .fraud-pulse {
+          width: 7px; height: 7px;
+          border-radius: 50%;
+          background: #ef4444;
+          animation: pulse 1.5s ease-in-out infinite;
+          flex-shrink: 0;
+        }
+        /* ── end new ── */
+
         .btn-logout {
           display: inline-flex;
           align-items: center;
           gap: 6px;
           padding: 9px 18px;
           border-radius: 10px;
-          border: 1px solid rgba(239,68,68,0.2);
-          background: rgba(239,68,68,0.08);
-          color: #f87171;
+          border: 1px solid rgba(255,255,255,0.08);
+          background: rgba(255,255,255,0.03);
+          color: #475569;
           font-family: 'DM Sans', sans-serif;
           font-size: 13px;
           font-weight: 600;
@@ -216,7 +256,7 @@ export default function AdminDashboard() {
           transition: background 0.2s, border-color 0.2s;
           white-space: nowrap;
         }
-        .btn-logout:hover { background: rgba(239,68,68,0.16); border-color: rgba(239,68,68,0.4); }
+        .btn-logout:hover { background: rgba(255,255,255,0.07); color: #94a3b8; }
 
         .tabs {
           display: flex;
@@ -405,7 +445,6 @@ export default function AdminDashboard() {
           animation: spin 0.7s linear infinite;
         }
 
-        /* ── POLICY LIST ── */
         .policy-list { display: flex; flex-direction: column; gap: 12px; }
 
         .policy-card {
@@ -490,9 +529,6 @@ export default function AdminDashboard() {
         @keyframes spin    { to { transform: rotate(360deg); } }
         @keyframes pulse   { 0%,100% { opacity:1; transform:scale(1); } 50% { opacity:0.4; transform:scale(0.8); } }
 
-        /* ── RESPONSIVE ── */
-
-        /* Tablet: 560–768px */
         @media (max-width: 768px) {
           .dash-body { padding: 32px 16px 60px; }
           .dash-title { font-size: 40px; }
@@ -500,20 +536,13 @@ export default function AdminDashboard() {
           .grid-3 { grid-template-columns: 1fr 1fr; }
         }
 
-        /* Mobile: ≤ 560px */
         @media (max-width: 560px) {
           .dash-body  { padding: 24px 14px 60px; }
           .dash-title { font-size: 34px; }
           .dash-card  { padding: 22px 16px; }
-
-          /* All grids → single column */
           .grid-2, .grid-3 { grid-template-columns: 1fr; }
-
-          /* Tier buttons stack if too narrow */
           .tier-group { flex-wrap: wrap; }
           .tier-btn   { min-width: calc(50% - 5px); }
-
-          /* Policy cards: stack vertically */
           .policy-card { flex-direction: column; align-items: flex-start; gap: 12px; }
           .policy-card-right {
             width: 100%;
@@ -523,15 +552,11 @@ export default function AdminDashboard() {
             border-top: 1px solid rgba(255,255,255,0.06);
           }
           .policy-stat { text-align: left; }
-
-          /* Field inputs: prevent iOS zoom */
           .field-input, .field-textarea { font-size: 16px; }
-
-          /* Toast: full-width */
           .toast { left: 14px; right: 14px; max-width: 100%; }
+          .dash-header-actions { flex-direction: row; flex-wrap: wrap; justify-content: flex-end; }
         }
 
-        /* Very small: ≤ 380px */
         @media (max-width: 380px) {
           .dash-title { font-size: 28px; }
           .tab-btn    { font-size: 12px; padding: 9px 10px; }
@@ -549,7 +574,19 @@ export default function AdminDashboard() {
               <h1 className="dash-title">Policy<br /><span>Management</span></h1>
               <p className="dash-subtitle">Create and manage insurance policy tiers</p>
             </div>
-            <button className="btn-logout" onClick={logout}>⏻ Logout</button>
+
+            {/* ── NEW: action buttons ── */}
+            <div className="dash-header-actions">
+              <button
+                className="btn-fraud"
+                onClick={() => router.push("/admin/fraud")}
+              >
+                <span className="fraud-pulse" />
+                🛡️ Fraud Panel
+              </button>
+              <button className="btn-logout" onClick={logout}>⏻ Logout</button>
+            </div>
+            {/* ── end new ── */}
           </div>
 
           {/* Tabs */}

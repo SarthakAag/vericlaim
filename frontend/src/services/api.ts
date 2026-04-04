@@ -6,7 +6,11 @@ const API = axios.create({
 
 API.interceptors.request.use((config) => {
 
-  const token = localStorage.getItem("user_token")
+  // ── Send admin_token for /admin/* routes, user_token for everything else ──
+  const isAdminRoute = config.url?.startsWith("/admin")
+  const token = isAdminRoute
+    ? localStorage.getItem("admin_token")
+    : localStorage.getItem("user_token")
 
   if (token) {
     config.headers.Authorization = `Bearer ${token}`

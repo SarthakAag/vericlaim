@@ -1,6 +1,7 @@
 """
 ML Risk Model — Drop-in Replacement for Weighted Scoring
 Guidewire DEVTrails 2026 — GigShield Parametric Insurance Platform
+Persona: Food Delivery Partners (Zomato / Swiggy) — Chennai
 
 Replaces the hand-crafted weighted ensemble in ai_delay_predictor.py
 with three trained scikit-learn models:
@@ -35,18 +36,34 @@ _METADATA_PATH      = os.path.join(_MDIR, "model_metadata.json")
 
 # ─── Zone flood risk ──────────────────────────────────────────────────────────
 ZONE_RISK: dict[str, float] = {
-    "velachery":    0.90,
-    "adyar":        0.85,
-    "porur":        0.75,
-    "tambaram":     0.70,
-    "chromepet":    0.60,
-    "kodambakkam":  0.65,
-    "perambur":     0.55,
-    "t_nagar":      0.50,
-    "anna_nagar":   0.40,
-    "guindy":       0.45,
-    "omr":          0.55,
-    "default":      0.50,
+    "velachery":   0.90,
+    "adyar":       0.85,
+    "porur":       0.75,
+    "tambaram":    0.70,
+    "chromepet":   0.60,
+    "kodambakkam": 0.65,
+    "perambur":    0.55,
+    "t_nagar":     0.50,
+    "anna_nagar":  0.40,
+    "guindy":      0.45,
+    "omr":         0.55,
+    "default":     0.50,
+}
+
+# ─── Food Delivery Zone Profiles (Zomato/Swiggy specific) ────────────────────
+FOOD_DELIVERY_ZONE_PROFILE: dict[str, dict] = {
+    "velachery":   {"flood_risk": 0.90, "restaurant_density": "high",      "avg_order_value": 280, "avg_daily_orders": 18},
+    "adyar":       {"flood_risk": 0.85, "restaurant_density": "high",      "avg_order_value": 380, "avg_daily_orders": 20},
+    "t_nagar":     {"flood_risk": 0.50, "restaurant_density": "very_high", "avg_order_value": 350, "avg_daily_orders": 22},
+    "omr":         {"flood_risk": 0.55, "restaurant_density": "medium",    "avg_order_value": 420, "avg_daily_orders": 15},
+    "anna_nagar":  {"flood_risk": 0.40, "restaurant_density": "high",      "avg_order_value": 310, "avg_daily_orders": 20},
+    "porur":       {"flood_risk": 0.75, "restaurant_density": "medium",    "avg_order_value": 260, "avg_daily_orders": 14},
+    "tambaram":    {"flood_risk": 0.70, "restaurant_density": "medium",    "avg_order_value": 240, "avg_daily_orders": 16},
+    "chromepet":   {"flood_risk": 0.60, "restaurant_density": "low",       "avg_order_value": 220, "avg_daily_orders": 13},
+    "kodambakkam": {"flood_risk": 0.65, "restaurant_density": "medium",    "avg_order_value": 270, "avg_daily_orders": 15},
+    "perambur":    {"flood_risk": 0.55, "restaurant_density": "low",       "avg_order_value": 210, "avg_daily_orders": 12},
+    "guindy":      {"flood_risk": 0.45, "restaurant_density": "medium",    "avg_order_value": 290, "avg_daily_orders": 16},
+    "default":     {"flood_risk": 0.50, "restaurant_density": "medium",    "avg_order_value": 280, "avg_daily_orders": 15},
 }
 
 # ─── Zone-based weather profiles — no API needed ─────────────────────────────
@@ -56,45 +73,21 @@ def _zone_weather(zone_risk: float) -> dict:
     Eliminates dependency on weather API entirely.
     """
     if zone_risk >= 0.85:        # Critical: Velachery, Adyar
-        return {
-            "rain_mm_per_hr": 70.0,
-            "temperature_c":  28.0,
-            "aqi":            180,
-            "wind_kmh":       45.0,
-            "visibility_m":   150.0,
-        }
+        return {"rain_mm_per_hr": 70.0, "temperature_c": 28.0, "aqi": 180, "wind_kmh": 45.0, "visibility_m": 150.0}
     elif zone_risk >= 0.70:      # High: Porur, Tambaram
-        return {
-            "rain_mm_per_hr": 38.0,
-            "temperature_c":  29.0,
-            "aqi":            140,
-            "wind_kmh":       30.0,
-            "visibility_m":   500.0,
-        }
+        return {"rain_mm_per_hr": 38.0, "temperature_c": 29.0, "aqi": 140, "wind_kmh": 30.0, "visibility_m": 500.0}
     elif zone_risk >= 0.55:      # Medium: Chromepet, Kodambakkam, OMR, Perambur
-        return {
-            "rain_mm_per_hr": 18.0,
-            "temperature_c":  31.0,
-            "aqi":            100,
-            "wind_kmh":       20.0,
-            "visibility_m":   2000.0,
-        }
+        return {"rain_mm_per_hr": 18.0, "temperature_c": 31.0, "aqi": 100, "wind_kmh": 20.0, "visibility_m": 2000.0}
     else:                        # Low: T Nagar, Anna Nagar, Guindy
-        return {
-            "rain_mm_per_hr": 2.0,
-            "temperature_c":  33.0,
-            "aqi":            60,
-            "wind_kmh":       12.0,
-            "visibility_m":   8000.0,
-        }
+        return {"rain_mm_per_hr": 2.0,  "temperature_c": 33.0, "aqi": 60,  "wind_kmh": 12.0, "visibility_m": 8000.0}
 
 
 # ─── Level labels ─────────────────────────────────────────────────────────────
-LEVEL_LABELS  = {0: "low", 1: "moderate", 2: "high", 3: "critical"}
-LEVEL_INT     = {"low": 0, "moderate": 1, "high": 2, "critical": 3}
+LEVEL_LABELS = {0: "low", 1: "moderate", 2: "high", 3: "critical"}
+LEVEL_INT    = {"low": 0, "moderate": 1, "high": 2, "critical": 3}
 
 # ─── Congestion string → int ──────────────────────────────────────────────────
-CONGESTION_MAP = {"low": 0, "moderate": 1, "heavy": 2, "gridlock": 3}
+CONGESTION_MAP   = {"low": 0, "moderate": 1, "heavy": 2, "gridlock": 3}
 CONGESTION_DELAY = {"low": 5, "moderate": 15, "heavy": 30, "gridlock": 60}
 
 # ─── Parametric thresholds (must match training thresholds) ───────────────────
@@ -108,15 +101,45 @@ THRESHOLDS = {
     "visibility_low_m": 200,
 }
 
-# ─── Payout tier per trigger type ────────────────────────────────────────────
+# ─── Trigger config — weather + food delivery specific ───────────────────────
 TRIGGER_CONFIG = {
+    # ── Environmental triggers ────────────────────────────────────────────────
     "extreme_rain":  {"coverage_hours": 4, "payout_tier": "full"},
     "heavy_rain":    {"coverage_hours": 2, "payout_tier": "partial"},
     "severe_heat":   {"coverage_hours": 3, "payout_tier": "partial"},
     "severe_aqi":    {"coverage_hours": 2, "payout_tier": "partial"},
     "road_closure":  {"coverage_hours": 3, "payout_tier": "partial"},
+
+    # ── Food delivery-specific triggers (Zomato/Swiggy) ──────────────────────
+    "platform_app_outage":       {"coverage_hours": 2, "payout_tier": "partial"},
+    # Zomato/Swiggy app down → zero orders, zero income
+
+    "restaurant_zone_closure":   {"coverage_hours": 3, "payout_tier": "partial"},
+    # Government-ordered restaurant area shutdown
+
+    "night_curfew":              {"coverage_hours": 4, "payout_tier": "full"},
+    # Curfew after 10 PM — no deliveries possible
+
+    "festival_traffic_gridlock": {"coverage_hours": 2, "payout_tier": "partial"},
+    # Severe gridlock during Pongal/Diwali/New Year
+
+    "flood_road_closure":        {"coverage_hours": 6, "payout_tier": "full"},
+    # Roads submerged — delivery impossible
+
     "none":          {"coverage_hours": 0, "payout_tier": "none"},
 }
+
+
+# ── Helper: zone income estimate for weekly premium calculation ───────────────
+def get_zone_weekly_income(zone_key: str) -> float:
+    """
+    Estimate weekly income from zone food delivery profile.
+    Used by payout_calculation_service as fallback when no DB earnings exist.
+    Assumes 6 working days, 8% commission per order value.
+    """
+    profile = FOOD_DELIVERY_ZONE_PROFILE.get(zone_key, FOOD_DELIVERY_ZONE_PROFILE["default"])
+    daily   = profile["avg_daily_orders"] * profile["avg_order_value"] * 0.08  # 8% commission
+    return round(daily * 6, 2)  # 6-day working week
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -158,16 +181,15 @@ class MLRiskModel:
         wind_kmh:           float,
         visibility_m:       float,
         zone_flood_risk:    float,
-        congestion:         int | str,    # int 0-3 OR string "heavy"
+        congestion:         int | str,
         traffic_delay_min:  int,
-        road_closure:       int,          # 0 or 1
+        road_closure:       int,
         driver_speed:       float,
         hist_avg_speed:     float,
         distance_remaining: float,
         hour:               int,
         weekday:            int,
         month:              int,
-        # Optional extras
         db:              Optional[Session] = None,
         user_id:         Optional[int]     = None,
         driver_id:       Optional[str]     = None,
@@ -181,14 +203,10 @@ class MLRiskModel:
 
         # ── Derived temporal features ─────────────────────────────────────────
         is_weekend = int(weekday >= 5)
-        is_rush    = int(
-            (7 <= hour <= 10) or (12 <= hour <= 14) or (17 <= hour <= 20)
-        )
+        is_rush    = int((7 <= hour <= 10) or (12 <= hour <= 14) or (17 <= hour <= 20))
 
         # ── Speed deviation ───────────────────────────────────────────────────
-        speed_deviation = (
-            abs(driver_speed - hist_avg_speed) / (hist_avg_speed + 1e-6)
-        )
+        speed_deviation = abs(driver_speed - hist_avg_speed) / (hist_avg_speed + 1e-6)
 
         # ── Engineered interaction features ───────────────────────────────────
         rain_x_zone     = rain_mm_per_hr * zone_flood_risk
@@ -196,7 +214,7 @@ class MLRiskModel:
         congestion_rush = congestion * is_rush
         speed_zone      = driver_speed * (1 - zone_flood_risk)
 
-        # ── Build feature vector (order must match FEATURE_COLS in train) ─────
+        # ── Build feature vector ──────────────────────────────────────────────
         base_features = {
             "rain_mm_per_hr":     rain_mm_per_hr,
             "temperature_c":      temperature_c,
@@ -215,7 +233,6 @@ class MLRiskModel:
             "month":              month,
             "is_weekend":         is_weekend,
             "is_rush_hour":       is_rush,
-            # Engineered
             "rain_x_zone":        rain_x_zone,
             "heat_x_aqi":         heat_x_aqi,
             "congestion_rush":    congestion_rush,
@@ -242,15 +259,10 @@ class MLRiskModel:
 
         # ── Rule-based parametric flags ───────────────────────────────────────
         flags, trigger_type = self._parametric_flags(
-            rain_mm_per_hr, temperature_c, aqi,
-            wind_kmh, visibility_m, road_closure,
+            rain_mm_per_hr, temperature_c, aqi, wind_kmh, visibility_m, road_closure,
         )
 
-        # Belt-and-braces: only fire if model AND rules agree
-        rule_trigger  = any(
-            "PARAMETRIC_TRIGGER" in f or "COVERAGE_TRIGGER" in f
-            for f in flags
-        )
+        rule_trigger  = any("PARAMETRIC_TRIGGER" in f or "COVERAGE_TRIGGER" in f for f in flags)
         final_trigger = trigger_fired and (rule_trigger or trigger_proba >= 0.80)
 
         # ── Parametric trigger output ─────────────────────────────────────────
@@ -273,6 +285,11 @@ class MLRiskModel:
         }
 
         extra_minutes = self._estimate_extra_minutes(risk_score, distance_remaining)
+
+        # ── Food delivery zone context ────────────────────────────────────────
+        zone_profile = FOOD_DELIVERY_ZONE_PROFILE.get(
+            driver_location.lower(), FOOD_DELIVERY_ZONE_PROFILE["default"]
+        )
 
         result = {
             "delay_detected":     risk_score >= 40,
@@ -297,36 +314,43 @@ class MLRiskModel:
                 "speed_deviation": round(speed_deviation, 3),
                 "month":           month,
             },
+            # ── Food delivery context added to every prediction ───────────────
+            "food_delivery_context": {
+                "zone":               driver_location,
+                "restaurant_density": zone_profile["restaurant_density"],
+                "avg_order_value":    zone_profile["avg_order_value"],
+                "avg_daily_orders":   zone_profile["avg_daily_orders"],
+                "est_daily_income":   round(
+                    zone_profile["avg_daily_orders"] * zone_profile["avg_order_value"] * 0.08, 2
+                ),
+            },
             "flags":         flags,
             "zone":          driver_location,
             "prediction_ts": now.isoformat(),
         }
 
-        # ── Persist to DB if session provided ─────────────────────────────────
         if db and user_id:
             self._persist(db, user_id, driver_id, result, base_features)
 
         logger.debug(
-            f"[MLRiskModel] uid={user_id} "
-            f"score={risk_score} level={delay_level} "
-            f"trigger={final_trigger}({trigger_proba:.2f}) "
-            f"flags={flags}"
+            f"[MLRiskModel] uid={user_id} score={risk_score} "
+            f"level={delay_level} trigger={final_trigger}({trigger_proba:.2f}) flags={flags}"
         )
         return result
 
     # ──────────────────────────────────────────────────────────────────────────
-    # CONVENIENCE: predict from zone key directly (used by risk_map_route)
+    # CONVENIENCE: predict from zone key directly
     # ──────────────────────────────────────────────────────────────────────────
 
     def predict_for_zone(
         self,
-        zone_key:          str,
-        traffic:           str   = "moderate",
-        driver_speed:      float = 15.0,
-        distance_remaining:float = 3.0,
-        db:                Optional[Session] = None,
-        user_id:           Optional[int]     = None,
-        driver_id:         Optional[str]     = None,
+        zone_key:           str,
+        traffic:            str   = "moderate",
+        driver_speed:       float = 15.0,
+        distance_remaining: float = 3.0,
+        db:                 Optional[Session] = None,
+        user_id:            Optional[int]     = None,
+        driver_id:          Optional[str]     = None,
     ) -> dict:
         """
         Build weather from zone risk and run prediction.
@@ -334,7 +358,6 @@ class MLRiskModel:
         """
         zone_risk = ZONE_RISK.get(zone_key, ZONE_RISK["default"])
         weather   = _zone_weather(zone_risk)
-
         return self.predict_from_dicts(
             weather            = weather,
             traffic            = {
@@ -347,9 +370,7 @@ class MLRiskModel:
             zone_flood_risk    = zone_risk,
             hist_avg_speed     = 22.0,
             driver_location    = zone_key,
-            db                 = db,
-            user_id            = user_id,
-            driver_id          = driver_id,
+            db=db, user_id=user_id, driver_id=driver_id,
         )
 
     # ──────────────────────────────────────────────────────────────────────────
@@ -391,23 +412,23 @@ class MLRiskModel:
             hour               = now.hour,
             weekday            = now.weekday(),
             month              = now.month,
-            db                 = db,
-            user_id            = user_id,
-            driver_id          = driver_id,
+            db=db, user_id=user_id, driver_id=driver_id,
             driver_location    = driver_location,
         )
 
     # ──────────────────────────────────────────────────────────────────────────
-    # MODEL METADATA (for admin dashboard / health check)
+    # MODEL METADATA
     # ──────────────────────────────────────────────────────────────────────────
 
     def model_info(self) -> dict:
         return {
-            "models":        self._metadata.get("models", {}),
-            "trained_at":    self._metadata.get("trained_at"),
-            "n_features":    self._metadata.get("n_features"),
-            "feature_names": self._feature_names,
-            "thresholds":    THRESHOLDS,
+            "models":                   self._metadata.get("models", {}),
+            "trained_at":               self._metadata.get("trained_at"),
+            "n_features":               self._metadata.get("n_features"),
+            "feature_names":            self._feature_names,
+            "thresholds":               THRESHOLDS,
+            "persona":                  "Food Delivery Partners — Zomato/Swiggy — Chennai",
+            "food_delivery_triggers":   list(TRIGGER_CONFIG.keys()),
         }
 
     # ──────────────────────────────────────────────────────────────────────────
@@ -456,7 +477,7 @@ class MLRiskModel:
         rain: float, wind: float,
         temp: float, congestion: int, speed: float,
     ) -> float:
-        score = 0.70   # ML models give higher baseline confidence
+        score = 0.70
         if rain > 0:                score += 0.06
         if wind > 0:                score += 0.04
         if 20 <= temp <= 45:        score += 0.04
@@ -467,9 +488,7 @@ class MLRiskModel:
     @staticmethod
     def _estimate_extra_minutes(score: float, distance: float) -> int:
         if score < 40: return 0
-        base = int((score - 40) * 0.5)
-        dist = min(20, int(distance * 1.5))
-        return base + dist
+        return int((score - 40) * 0.5) + min(20, int(distance * 1.5))
 
     @staticmethod
     def _persist(
@@ -508,7 +527,7 @@ class MLRiskModel:
             logger.error(f"[MLRiskModel] DB persist failed: {exc}")
 
 
-# ─── Module-level singleton (loaded once at import time) ──────────────────────
+# ─── Singleton ────────────────────────────────────────────────────────────────
 _model: Optional[MLRiskModel] = None
 
 
@@ -536,13 +555,11 @@ def predict_delay(
     """
     Drop-in replacement for ai_delay_predictor.predict_delay().
     Accepts identical arguments — uses ML models instead of weighted rules.
-    If weather is not a dict (e.g. "normal" string), builds it from zone_flood_risk.
+    If weather is not a dict (e.g. a string), builds it from zone_flood_risk.
     """
-    # If weather is a string (old API), build proper dict from zone risk
     if not isinstance(weather, dict):
         weather = _zone_weather(zone_flood_risk)
 
-    # Normalise traffic to dict if string passed
     if isinstance(traffic, str):
         traffic = {
             "congestion_level": traffic,

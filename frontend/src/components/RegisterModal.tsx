@@ -13,32 +13,45 @@ interface RegisterModalProps {
 export default function RegisterModal({ isOpen, onClose, onSwitchToLogin }: RegisterModalProps) {
   const router = useRouter()
 
-  const [fullName, setFullName]   = useState("")
-  const [partnerId, setPartnerId] = useState("")
-  const [email, setEmail]         = useState("")
-  const [password, setPassword]   = useState("")
-  const [platform, setPlatform]   = useState("")
-  const [age, setAge]             = useState("")
-  const [loading, setLoading]     = useState(false)
-  const [showPass, setShowPass]   = useState(false)
+  const [fullName, setFullName]       = useState("")
+  const [partnerId, setPartnerId]     = useState("")
+  const [email, setEmail]             = useState("")
+  const [password, setPassword]       = useState("")
+  const [platform, setPlatform]       = useState("")
+  const [age, setAge]                 = useState("")
+  const [zone, setZone]               = useState("")
+  const [vehicleType, setVehicleType] = useState("")
+  const [loading, setLoading]         = useState(false)
+  const [showPass, setShowPass]       = useState(false)
 
   const register = async () => {
-    if (!fullName || !partnerId || !email || !password || !platform || !age) {
+    if (!fullName || !partnerId || !email || !password || !platform || !age || !zone || !vehicleType) {
       alert("Please fill all fields")
       return
     }
     try {
       setLoading(true)
       await API.post("/auth/register", {
-        full_name: fullName,
+        full_name:           fullName,
         delivery_partner_id: partnerId,
         email,
         password,
-        platform,
-        age: Number(age),
+        platform:            platform.toLowerCase(),   // ← FIX: "Zomato" → "zomato"
+        age:                 Number(age),
+        zone:                zone.toLowerCase(),        // ← FIX: safety lowercase
+        vehicle_type:        vehicleType,
       })
-      alert("Registration successful")
-      router.push("/user/login")
+
+      // ── Store in localStorage so Navbar badge shows immediately after login ──
+      localStorage.setItem("user_platform", platform.toLowerCase())
+      localStorage.setItem("user_zone",     zone.toLowerCase())
+      // ─────────────────────────────────────────────────────────────────────────
+
+      if (onSwitchToLogin) {
+        onSwitchToLogin()
+      } else {
+        onClose()
+      }
     } catch (err: any) {
       alert(err?.response?.data?.detail || "Registration failed")
     } finally {
@@ -57,7 +70,7 @@ export default function RegisterModal({ isOpen, onClose, onSwitchToLogin }: Regi
 
   if (!isOpen) return null
 
-  const filledCount = [fullName, partnerId, email, platform, age, password].filter(Boolean).length
+  const filledCount = [fullName, partnerId, email, platform, age, zone, vehicleType, password].filter(Boolean).length
 
   return (
     <>
@@ -168,7 +181,6 @@ export default function RegisterModal({ isOpen, onClose, onSwitchToLogin }: Regi
           font-weight: 400;
         }
 
-        /* Progress bar */
         .reg-steps {
           display: flex;
           gap: 6px;
@@ -185,7 +197,6 @@ export default function RegisterModal({ isOpen, onClose, onSwitchToLogin }: Regi
         .reg-step.done   { background: rgba(34,197,94,0.5); }
         .reg-step.active { background: #22c55e; }
 
-        /* Two-col grid */
         .reg-grid {
           display: grid;
           grid-template-columns: 1fr 1fr;
@@ -244,8 +255,25 @@ export default function RegisterModal({ isOpen, onClose, onSwitchToLogin }: Regi
         }
         .pass-toggle:hover { color: #94a3b8; }
 
-        /* Full width fields */
         .reg-full { margin-bottom: 12px; }
+
+        .reg-section-label {
+          font-size: 10px;
+          font-weight: 600;
+          letter-spacing: 0.12em;
+          text-transform: uppercase;
+          color: #334155;
+          margin: 16px 0 10px;
+          display: flex;
+          align-items: center;
+          gap: 8px;
+        }
+        .reg-section-label::after {
+          content: '';
+          flex: 1;
+          height: 1px;
+          background: rgba(255,255,255,0.06);
+        }
 
         .btn-register {
           width: 100%;
@@ -303,7 +331,6 @@ export default function RegisterModal({ isOpen, onClose, onSwitchToLogin }: Regi
         }
         .reg-footer button:hover { color: #fbbf24; }
 
-        /* ── Animations ── */
         @keyframes regOverlayIn {
           from { opacity: 0; } to { opacity: 1; }
         }
@@ -317,51 +344,23 @@ export default function RegisterModal({ isOpen, onClose, onSwitchToLogin }: Regi
           50%     { opacity:0.4; transform:scale(0.8); }
         }
 
-        /* ══════════════════════════════════════
-           RESPONSIVE
-        ══════════════════════════════════════ */
-
-        /* Tablet */
         @media (max-width: 600px) {
-          .reg-panel {
-            padding: 36px 28px 32px;
-            border-radius: 16px;
-          }
-
+          .reg-panel { padding: 36px 28px 32px; border-radius: 16px; }
           .reg-title { font-size: 34px; }
         }
 
-        /* Mobile */
         @media (max-width: 480px) {
           .reg-overlay { padding: 12px; align-items: flex-end; }
-
-          .reg-panel {
-            padding: 32px 20px 28px;
-            border-radius: 20px 20px 12px 12px;
-            max-width: 100%;
-          }
-
-          /* Stack two-col grid to single col on mobile */
-          .reg-grid {
-            grid-template-columns: 1fr;
-            gap: 10px;
-          }
-
+          .reg-panel { padding: 32px 20px 28px; border-radius: 20px 20px 12px 12px; max-width: 100%; }
+          .reg-grid { grid-template-columns: 1fr; gap: 10px; }
           .reg-title { font-size: 30px; }
-
-          .reg-input {
-            font-size: 16px; /* prevents iOS zoom on focus */
-            padding: 12px 14px;
-          }
-
+          .reg-input { font-size: 16px; padding: 12px 14px; }
           .reg-subtitle { font-size: 12px; margin-bottom: 20px; }
           .reg-eyebrow  { font-size: 9px; padding: 4px 10px; }
           .reg-footer   { font-size: 12px; }
-
           .btn-register { padding: 14px; font-size: 14px; }
         }
 
-        /* Very small */
         @media (max-width: 360px) {
           .reg-panel { padding: 28px 16px 24px; }
           .reg-title { font-size: 26px; }
@@ -381,11 +380,10 @@ export default function RegisterModal({ isOpen, onClose, onSwitchToLogin }: Regi
           <h2 className="reg-title">
             Join the<br /><span>Network</span>
           </h2>
-          <p className="reg-subtitle">Create your delivery partner account</p>
+          <p className="reg-subtitle">Create your food delivery partner account</p>
 
-          {/* Progress bar */}
           <div className="reg-steps">
-            {[fullName, partnerId, email, platform, age, password].map((val, i) => (
+            {[fullName, partnerId, email, platform, age, zone, vehicleType, password].map((val, i) => (
               <div
                 key={i}
                 className={`reg-step ${val ? "done" : i === filledCount ? "active" : ""}`}
@@ -393,7 +391,7 @@ export default function RegisterModal({ isOpen, onClose, onSwitchToLogin }: Regi
             ))}
           </div>
 
-          {/* Two-col grid */}
+          {/* Row 1: Name + Partner ID */}
           <div className="reg-grid">
             <div className="reg-field">
               <label htmlFor="reg-fullname">Full Name</label>
@@ -417,6 +415,7 @@ export default function RegisterModal({ isOpen, onClose, onSwitchToLogin }: Regi
               />
             </div>
 
+            {/* Row 2: Platform + Age */}
             <div className="reg-field">
               <label htmlFor="reg-platform">Platform</label>
               <select
@@ -427,12 +426,14 @@ export default function RegisterModal({ isOpen, onClose, onSwitchToLogin }: Regi
                 style={{ cursor: "pointer" }}
               >
                 <option value="" disabled>Select platform</option>
-                <option value="Zomato">Zomato</option>
-                <option value="Swiggy">Swiggy</option>
-                <option value="Zepto">Zepto</option>
-                <option value="Blinkit">Blinkit</option>
-                <option value="Dunzo">Dunzo</option>
-                <option value="Other">Other</option>
+                {/* values are lowercase — matches backend + PLATFORM_META */}
+                <option value="zomato">Zomato</option>
+                <option value="swiggy">Swiggy</option>
+                <option value="both">Both (Zomato + Swiggy)</option>
+                <option value="zepto">Zepto</option>
+                <option value="blinkit">Blinkit</option>
+                <option value="dunzo">Dunzo</option>
+                <option value="other">Other</option>
               </select>
             </div>
 
@@ -448,6 +449,51 @@ export default function RegisterModal({ isOpen, onClose, onSwitchToLogin }: Regi
                 value={age}
                 onChange={(e) => setAge(e.target.value)}
               />
+            </div>
+          </div>
+
+          <div className="reg-section-label">Delivery Details</div>
+
+          {/* Row 3: Zone + Vehicle Type */}
+          <div className="reg-grid" style={{ marginBottom: "12px" }}>
+            <div className="reg-field">
+              <label htmlFor="reg-zone">Zone (Chennai)</label>
+              <select
+                id="reg-zone"
+                className="reg-input"
+                value={zone}
+                onChange={(e) => setZone(e.target.value)}
+                style={{ cursor: "pointer" }}
+              >
+                <option value="" disabled>Select zone</option>
+                <option value="velachery">Velachery</option>
+                <option value="adyar">Adyar</option>
+                <option value="porur">Porur</option>
+                <option value="tambaram">Tambaram</option>
+                <option value="chromepet">Chromepet</option>
+                <option value="kodambakkam">Kodambakkam</option>
+                <option value="perambur">Perambur</option>
+                <option value="t_nagar">T. Nagar</option>
+                <option value="anna_nagar">Anna Nagar</option>
+                <option value="guindy">Guindy</option>
+                <option value="omr">OMR</option>
+              </select>
+            </div>
+
+            <div className="reg-field">
+              <label htmlFor="reg-vehicle">Vehicle Type</label>
+              <select
+                id="reg-vehicle"
+                className="reg-input"
+                value={vehicleType}
+                onChange={(e) => setVehicleType(e.target.value)}
+                style={{ cursor: "pointer" }}
+              >
+                <option value="" disabled>Select vehicle</option>
+                <option value="two_wheeler">Two Wheeler</option>
+                <option value="bicycle">Bicycle</option>
+                <option value="ev_scooter">EV Scooter</option>
+              </select>
             </div>
           </div>
 

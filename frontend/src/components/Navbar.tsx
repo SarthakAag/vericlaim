@@ -12,10 +12,12 @@ export default function Navbar({ onRegisterClick, onLoginClick }: NavbarProps = 
   const [isLoggedIn, setIsLoggedIn] = useState(false)
   const [scrolled,   setScrolled]   = useState(false)
   const [menuOpen,   setMenuOpen]   = useState(false)
+  const [platform,   setPlatform]   = useState<string | null>(null)
 
   useEffect(() => {
     const token = localStorage.getItem("user_token")
     if (token) setIsLoggedIn(true)
+    setPlatform(localStorage.getItem("user_platform"))
   }, [])
 
   useEffect(() => {
@@ -24,14 +26,12 @@ export default function Navbar({ onRegisterClick, onLoginClick }: NavbarProps = 
     return () => window.removeEventListener("scroll", onScroll)
   }, [])
 
-  // Close menu on resize to desktop
   useEffect(() => {
     const onResize = () => { if (window.innerWidth > 768) setMenuOpen(false) }
     window.addEventListener("resize", onResize)
     return () => window.removeEventListener("resize", onResize)
   }, [])
 
-  // Lock body scroll when menu is open
   useEffect(() => {
     document.body.style.overflow = menuOpen ? "hidden" : ""
     return () => { document.body.style.overflow = "" }
@@ -39,17 +39,31 @@ export default function Navbar({ onRegisterClick, onLoginClick }: NavbarProps = 
 
   const logout = () => {
     localStorage.removeItem("user_token")
+    localStorage.removeItem("user_platform")
     window.location.href = "/"
   }
 
   const close = () => setMenuOpen(false)
+
+  // Normalize stored platform string → display label
+  const platformLabel = platform
+    ? platform.charAt(0).toUpperCase() + platform.slice(1).toLowerCase()
+    : null
+
+  // Per-platform accent colours
+  const platformColor =
+    platform?.toLowerCase() === "zomato"  ? { bg: "rgba(226,55,68,0.12)",  border: "rgba(226,55,68,0.3)",  dot: "#e23744", text: "#ff6b78" } :
+    platform?.toLowerCase() === "swiggy"  ? { bg: "rgba(252,128,25,0.12)", border: "rgba(252,128,25,0.3)", dot: "#fc8019", text: "#ffaa60" } :
+    platform?.toLowerCase() === "zepto"   ? { bg: "rgba(138,43,226,0.12)", border: "rgba(138,43,226,0.3)", dot: "#8a2be2", text: "#b06aff" } :
+    platform?.toLowerCase() === "blinkit" ? { bg: "rgba(255,204,0,0.12)",  border: "rgba(255,204,0,0.3)",  dot: "#ffcc00", text: "#ffe066" } :
+    platform?.toLowerCase() === "dunzo"   ? { bg: "rgba(0,196,159,0.12)",  border: "rgba(0,196,159,0.3)",  dot: "#00c49f", text: "#33e0bf" } :
+                                            { bg: "rgba(249,115,22,0.10)", border: "rgba(249,115,22,0.28)", dot: "#f97316", text: "#fb923c" }
 
   return (
     <>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600&display=swap');
 
-        /* ── BASE ── */
         .navbar {
           position: sticky; top: 0; z-index: 900;
           display: flex; align-items: center; justify-content: space-between;
@@ -67,7 +81,6 @@ export default function Navbar({ onRegisterClick, onLoginClick }: NavbarProps = 
           box-shadow: 0 1px 32px rgba(0,0,0,0.4);
         }
 
-        /* ── BRAND ── */
         .nav-brand {
           display: flex; align-items: center; gap: 10px;
           text-decoration: none; flex-shrink: 0;
@@ -84,7 +97,29 @@ export default function Navbar({ onRegisterClick, onLoginClick }: NavbarProps = 
           font-size: 22px; letter-spacing: .05em; color: #e8eaf0; line-height: 1;
         }
 
-        /* ── DESKTOP LINKS ── */
+        /* ── PLATFORM BADGE (desktop) ── */
+        .nav-platform-badge {
+          display: inline-flex; align-items: center; gap: 6px;
+          border-radius: 100px;
+          padding: 4px 13px 4px 8px;
+          font-size: 12px; font-weight: 600;
+          letter-spacing: .02em;
+          white-space: nowrap; flex-shrink: 0;
+          animation: badgeFadeIn .35s ease both;
+        }
+        .nav-platform-dot {
+          width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0;
+          animation: badgePulse 2.5s ease-in-out infinite;
+        }
+        @keyframes badgePulse {
+          0%,100%{opacity:1;transform:scale(1)}
+          50%{opacity:.4;transform:scale(.65)}
+        }
+        @keyframes badgeFadeIn {
+          from{opacity:0;transform:scale(.9) translateY(-2px)}
+          to  {opacity:1;transform:scale(1)  translateY(0)}
+        }
+
         .nav-links {
           display: flex; align-items: center; gap: 4px;
         }
@@ -97,7 +132,6 @@ export default function Navbar({ onRegisterClick, onLoginClick }: NavbarProps = 
         .nav-link:hover { color: #e8eaf0; background: rgba(255,255,255,.06); }
         .nav-divider { width: 1px; height: 20px; background: rgba(255,255,255,.08); margin: 0 8px; flex-shrink: 0; }
 
-        /* ── BUTTONS ── */
         .nav-btn {
           display: inline-flex; align-items: center; gap: 6px;
           padding: 7px 18px; border-radius: 8px;
@@ -120,7 +154,6 @@ export default function Navbar({ onRegisterClick, onLoginClick }: NavbarProps = 
         .admin-dot { width: 5px; height: 5px; border-radius: 50%; background: #ef4444; animation: adminPulse 2s ease-in-out infinite; flex-shrink: 0; }
         @keyframes adminPulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.4;transform:scale(.75)} }
 
-        /* ── HAMBURGER ── */
         .nav-hamburger {
           display: none; flex-direction: column; justify-content: center;
           align-items: center; gap: 5px;
@@ -128,25 +161,17 @@ export default function Navbar({ onRegisterClick, onLoginClick }: NavbarProps = 
           background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.1);
           border-radius: 8px; flex-shrink: 0;
         }
-        .ham-bar {
-          width: 18px; height: 2px; background: #94a3b8;
-          border-radius: 1px; transition: all .25s;
-        }
+        .ham-bar { width: 18px; height: 2px; background: #94a3b8; border-radius: 1px; transition: all .25s; }
         .nav-hamburger.open .ham-bar:nth-child(1) { transform: translateY(7px) rotate(45deg); }
         .nav-hamburger.open .ham-bar:nth-child(2) { opacity: 0; transform: scaleX(0); }
         .nav-hamburger.open .ham-bar:nth-child(3) { transform: translateY(-7px) rotate(-45deg); }
 
-        /* ── MOBILE DRAWER ── */
         .nav-drawer {
           display: none;
           position: fixed; inset: 64px 0 0 0; z-index: 800;
-          background: rgba(10,12,16,.98);
-          backdrop-filter: blur(20px);
-          flex-direction: column;
-          padding: 24px 20px;
-          gap: 6px;
-          overflow-y: auto;
-          border-top: 1px solid rgba(255,255,255,.07);
+          background: rgba(10,12,16,.98); backdrop-filter: blur(20px);
+          flex-direction: column; padding: 24px 20px; gap: 6px;
+          overflow-y: auto; border-top: 1px solid rgba(255,255,255,.07);
           animation: drawerIn .2s ease both;
         }
         .nav-drawer.open { display: flex; }
@@ -156,11 +181,9 @@ export default function Navbar({ onRegisterClick, onLoginClick }: NavbarProps = 
           display: flex; align-items: center;
           padding: 14px 16px; border-radius: 10px;
           font-size: 15px; font-weight: 500; color: #94a3b8;
-          text-decoration: none; transition: all .2s;
-          border: 1px solid transparent;
+          text-decoration: none; transition: all .2s; border: 1px solid transparent;
         }
         .drawer-link:hover { background: rgba(255,255,255,.05); color: #e8eaf0; border-color: rgba(255,255,255,.09); }
-
         .drawer-divider { height: 1px; background: rgba(255,255,255,.07); margin: 8px 0; }
 
         .drawer-btn {
@@ -170,25 +193,35 @@ export default function Navbar({ onRegisterClick, onLoginClick }: NavbarProps = 
           cursor: pointer; border: none; transition: all .2s; text-decoration: none;
         }
         .drawer-btn-primary { background: linear-gradient(135deg,#f97316,#ea580c); color: #fff; box-shadow: 0 4px 16px rgba(249,115,22,.28); }
-        .drawer-btn-primary:hover { box-shadow: 0 6px 22px rgba(249,115,22,.4); }
-        .drawer-btn-ghost { background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.12) !important; color: #94a3b8; }
-        .drawer-btn-danger { background: rgba(239,68,68,.12); border: 1px solid rgba(239,68,68,.25) !important; color: #f87171; }
-        .drawer-btn-admin  { background: rgba(239,68,68,.08); border: 1px solid rgba(239,68,68,.22) !important; color: #ef4444; }
+        .drawer-btn-ghost   { background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.12) !important; color: #94a3b8; }
+        .drawer-btn-danger  { background: rgba(239,68,68,.12); border: 1px solid rgba(239,68,68,.25) !important; color: #f87171; }
+        .drawer-btn-admin   { background: rgba(239,68,68,.08); border: 1px solid rgba(239,68,68,.22) !important; color: #ef4444; }
+
+        /* Mobile platform card */
+        .drawer-platform {
+          display: flex; align-items: center; gap: 10px;
+          padding: 13px 16px; border-radius: 10px;
+        }
+        .drawer-platform-dot {
+          width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
+          animation: badgePulse 2.5s ease-in-out infinite;
+        }
+        .drawer-platform-info { display: flex; flex-direction: column; gap: 1px; }
+        .drawer-platform-name { font-size: 14px; font-weight: 700; }
+        .drawer-platform-sub  { font-size: 11px; font-weight: 400; opacity: .6; letter-spacing: .03em; }
 
         .drawer-section-label {
           font-size: 10px; font-weight: 600; letter-spacing: .12em;
-          text-transform: uppercase; color: #334155;
-          padding: 8px 16px 4px;
+          text-transform: uppercase; color: #334155; padding: 8px 16px 4px;
         }
 
-        /* ── RESPONSIVE BREAKPOINTS ── */
+        @media (max-width: 900px) { .nav-platform-badge { display: none; } }
         @media (max-width: 768px) {
           .navbar { padding: 0 16px; }
           .nav-links { display: none; }
           .nav-hamburger { display: flex; }
           .nav-brand-text { font-size: 19px; }
         }
-
         @media (max-width: 400px) {
           .nav-brand-text { font-size: 16px; }
           .nav-brand-icon { width: 28px; height: 28px; font-size: 14px; }
@@ -199,9 +232,19 @@ export default function Navbar({ onRegisterClick, onLoginClick }: NavbarProps = 
       <nav className={`navbar${scrolled ? " scrolled" : ""}`}>
 
         <Link href="/" className="nav-brand" onClick={close}>
-          <div className="nav-brand-icon">🛵</div>
-          <span className="nav-brand-text">Gig Insurance</span>
+          <span className="nav-brand-text">VeriClaim</span>
         </Link>
+
+        {/* Platform badge — desktop, only when logged in + platform known */}
+        {isLoggedIn && platformLabel && (
+          <div
+            className="nav-platform-badge"
+            style={{ background: platformColor.bg, border: `1px solid ${platformColor.border}`, color: platformColor.text }}
+          >
+            <span className="nav-platform-dot" style={{ background: platformColor.dot }} />
+            {platformLabel} · Delivery Partner
+          </div>
+        )}
 
         {/* Desktop links */}
         <div className="nav-links">
@@ -236,7 +279,6 @@ export default function Navbar({ onRegisterClick, onLoginClick }: NavbarProps = 
           </Link>
         </div>
 
-        {/* Hamburger (mobile only) */}
         <button
           className={`nav-hamburger${menuOpen ? " open" : ""}`}
           onClick={() => setMenuOpen(v => !v)}
@@ -251,32 +293,36 @@ export default function Navbar({ onRegisterClick, onLoginClick }: NavbarProps = 
       {/* ── MOBILE DRAWER ── */}
       <div className={`nav-drawer${menuOpen ? " open" : ""}`}>
 
+        {/* Platform card — mobile, only when logged in */}
+        {isLoggedIn && platformLabel && (
+          <div
+            className="drawer-platform"
+            style={{ background: platformColor.bg, border: `1px solid ${platformColor.border}`, color: platformColor.text }}
+          >
+            <span className="drawer-platform-dot" style={{ background: platformColor.dot }} />
+            <div className="drawer-platform-info">
+              <span className="drawer-platform-name">{platformLabel}</span>
+              <span className="drawer-platform-sub">Food Delivery Partner</span>
+            </div>
+          </div>
+        )}
+
         <div className="drawer-section-label">Navigation</div>
-        <Link href="/" className="drawer-link" onClick={close}>🏠 &nbsp;Home</Link>
+        <Link href="/" className="drawer-link" onClick={close}>&nbsp;Home</Link>
 
         {!isLoggedIn && (
           <>
             <div className="drawer-divider" />
             <div className="drawer-section-label">Account</div>
             {onLoginClick ? (
-              <button className="drawer-btn drawer-btn-ghost"
-                onClick={() => { onLoginClick(); close() }}>
-                Login
-              </button>
+              <button className="drawer-btn drawer-btn-ghost" onClick={() => { onLoginClick(); close() }}>Login</button>
             ) : (
-              <Link href="/user/login" className="drawer-btn drawer-btn-ghost" onClick={close}>
-                Login
-              </Link>
+              <Link href="/user/login" className="drawer-btn drawer-btn-ghost" onClick={close}>Login</Link>
             )}
             {onRegisterClick ? (
-              <button className="drawer-btn drawer-btn-primary"
-                onClick={() => { onRegisterClick(); close() }}>
-                Register →
-              </button>
+              <button className="drawer-btn drawer-btn-primary" onClick={() => { onRegisterClick(); close() }}>Register →</button>
             ) : (
-              <Link href="/user/register" className="drawer-btn drawer-btn-primary" onClick={close}>
-                Register →
-              </Link>
+              <Link href="/user/register" className="drawer-btn drawer-btn-primary" onClick={close}>Register →</Link>
             )}
           </>
         )}
@@ -285,16 +331,14 @@ export default function Navbar({ onRegisterClick, onLoginClick }: NavbarProps = 
           <>
             <div className="drawer-divider" />
             <div className="drawer-section-label">Partner Portal</div>
-            <Link href="/enroll-policy"     className="drawer-link" onClick={close}>📋 &nbsp;Enroll Policy</Link>
-            <Link href="/pay-premium"        className="drawer-link" onClick={close}>💳 &nbsp;Pay Premium</Link>
-            <Link href="/policies"           className="drawer-link" onClick={close}>📄 &nbsp;Policies</Link>
-            <Link href="/earnings"           className="drawer-link" onClick={close}>💰 &nbsp;Earnings</Link>
-            <Link href="/complete-delivery"  className="drawer-link" onClick={close}>🚀 &nbsp;Start Delivery</Link>
-            <Link href="/risk-map"           className="drawer-link" onClick={close}>🗺 &nbsp;Risk Map</Link>
+            <Link href="/enroll-policy"    className="drawer-link" onClick={close}>&nbsp;Enroll Policy</Link>
+            <Link href="/pay-premium"      className="drawer-link" onClick={close}>&nbsp;Pay Premium</Link>
+            <Link href="/policies"         className="drawer-link" onClick={close}>&nbsp;Policies</Link>
+            <Link href="/earnings"         className="drawer-link" onClick={close}>&nbsp;Earnings</Link>
+            <Link href="/complete-delivery" className="drawer-link" onClick={close}>&nbsp;Start Delivery</Link>
+            <Link href="/risk-map"         className="drawer-link" onClick={close}>&nbsp;Risk Map</Link>
             <div className="drawer-divider" />
-            <button className="drawer-btn drawer-btn-danger" onClick={() => { logout(); close() }}>
-              ⏻ &nbsp;Logout
-            </button>
+            <button className="drawer-btn drawer-btn-danger" onClick={() => { logout(); close() }}>⏻ &nbsp;Logout</button>
           </>
         )}
 
