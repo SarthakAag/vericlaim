@@ -87,12 +87,15 @@ VeriClaim AI provides a **fully automated, AI-powered insurance system**:
 ## Project Structure
 
 <img width="381" height="689" alt="Screenshot 2026-04-04 180926" src="https://github.com/user-attachments/assets/48e98d50-cc02-4656-8c60-ff590f04391a" />
+<img width="372" height="599" alt="Screenshot 2026-04-04 180936" src="https://github.com/user-attachments/assets/c7e96252-7bf0-4652-9272-e1da5635600a" />
+<img width="367" height="603" alt="Screenshot 2026-04-04 181003" src="https://github.com/user-attachments/assets/a75fa8d8-d480-43c9-bf29-0af65e876157" />
+<img width="396" height="630" alt="Screenshot 2026-04-04 180944" src="https://github.com/user-attachments/assets/59b40896-9258-4ee3-ac77-037b7db50a5c" />
 
 
 
 ## Installation & Setup
 
-### 1️Clone the repository
+1️ Clone the repository
 bash
 git clone https://github.com/your-username/vericlaim.git
 cd vericlaim
