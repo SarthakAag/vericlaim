@@ -1,21 +1,13 @@
-from fastapi import Depends, HTTPException
+from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from jose import jwt, JWTError
 from sqlalchemy.orm import Session
 
-from app.database import SessionLocal
+from app.database import get_db   # ✅ use central get_db (important)
 from app.models.admin_model import Admin
-from app.utils.jwt_handler import SECRET_KEY, ALGORITHM  # ← was importing from security.py
+from app.utils.jwt_handler import SECRET_KEY, ALGORITHM
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/admin/login")
-
-
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
 
 
 def get_current_admin(
@@ -23,19 +15,25 @@ def get_current_admin(
     db: Session = Depends(get_db)
 ):
     credentials_exception = HTTPException(
-        status_code=401,
-        detail="Could not validate admin"
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Could not validate admin credentials",
+        headers={"WWW-Authenticate": "Bearer"},
     )
 
     try:
+        # 🔐 Decode JWT
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        username = payload.get("sub")
+        username: str = payload.get("sub")
+
         if username is None:
             raise credentials_exception
+
     except JWTError:
         raise credentials_exception
 
+    # 🗄️ Fetch admin from DB
     admin = db.query(Admin).filter(Admin.username == username).first()
+
     if admin is None:
         raise credentials_exception
 
